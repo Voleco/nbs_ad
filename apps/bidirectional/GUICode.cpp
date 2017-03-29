@@ -962,30 +962,40 @@ void AnalyzeNBS(const char *map, const char *scenario, double weight)
 		std::vector<xyLoc> bsPath;
 		astar.SetHeuristic(me);
 
+		t.StartTimer();
 		astar.GetPath(me, start, goal, correctPath);
-		printf("%d %1.1f A* nodes: %llu necessary %llu\n", x, me->GetPathLength(correctPath), astar.GetNodesExpanded(), astar.GetNecessaryExpansions());
+		t.EndTimer();
+		printf("%d %1.1f A* nodes: %llu necessary %llu time: %1.2f \n", x, me->GetPathLength(correctPath), astar.GetNodesExpanded(), astar.GetNecessaryExpansions(), t.GetElapsedTime());
+		t.StartTimer();
 		bs.GetPath(me, start, goal, me, me, bsPath);
-		printf("%d %1.1f BS nodes: %llu necessary %llu\n", x, me->GetPathLength(bsPath), bs.GetNodesExpanded(), bs.GetNecessaryExpansions());
+		t.EndTimer();
+		printf("%d %1.1f BS nodes: %llu necessary %llu time: %1.2f \n", x, me->GetPathLength(bsPath), bs.GetNodesExpanded(), bs.GetNecessaryExpansions(), t.GetElapsedTime());
+		t.StartTimer();
 		mm.GetPath(me, start, goal, me, me, mmPath);
-		printf("%d %1.1f MM nodes: %llu necessary %llu\n", x, me->GetPathLength(mmPath), mm.GetNodesExpanded(), mm.GetNecessaryExpansions());
+		t.EndTimer();
+		printf("%d %1.1f MM nodes: %llu necessary %llu time: %1.2f \n", x, me->GetPathLength(mmPath), mm.GetNodesExpanded(), mm.GetNecessaryExpansions(), t.GetElapsedTime());
+		t.StartTimer();
 		nbs.GetPath(me, start, goal, me, me, nbsPath);
-		printf("%d %1.1f NBS nodes: %llu necessary %llu\n", x, me->GetPathLength(nbsPath), nbs.GetNodesExpanded(), nbs.GetNecessaryExpansions());
+		t.EndTimer();
+		printf("%d %1.1f NBS nodes: %llu necessary %llu time: %1.2f \n", x, me->GetPathLength(nbsPath), nbs.GetNodesExpanded(), nbs.GetNecessaryExpansions(), t.GetElapsedTime());
+		t.StartTimer();
 		mm0.GetPath(me, start, goal, &z, &z, mm0Path);
-		printf("%d %1.1f MM0 nodes: %llu necessary %llu\n", x, me->GetPathLength(mm0Path), mm0.GetNodesExpanded(), mm0.GetNecessaryExpansions());
+		t.EndTimer();
+		printf("%d %1.1f MM0 nodes: %llu necessary %llu time: %1.2f \n", x, me->GetPathLength(mm0Path), mm0.GetNodesExpanded(), mm0.GetNecessaryExpansions(), t.GetElapsedTime());
 
-		printf("NBSNecessaryRatios: NBS/A* %1.2f NBS/BS %1.2f NBS/MM %1.2f NBS/MM0 %1.2f\n",
-			   (double)nbs.GetNecessaryExpansions()/astar.GetNecessaryExpansions(),
-			   (double)nbs.GetNecessaryExpansions()/bs.GetNecessaryExpansions(),
-			   (double)nbs.GetNecessaryExpansions()/mm.GetNecessaryExpansions(),
-			   (double)nbs.GetNecessaryExpansions()/mm0.GetNecessaryExpansions()
-			   );
-		printf("SelfNecessaryRatios: A* %1.2f BS %1.2f MM %1.2f NBS %1.2f MM0 %1.2f\n",
-			   (double)astar.GetNodesExpanded()/astar.GetNecessaryExpansions(),
-			   (double)bs.GetNodesExpanded()/bs.GetNecessaryExpansions(),
-			   (double)mm.GetNodesExpanded()/mm.GetNecessaryExpansions(),
-			   (double)nbs.GetNodesExpanded()/nbs.GetNecessaryExpansions(),
-			   (double)mm0.GetNodesExpanded()/mm0.GetNecessaryExpansions()
-			   );
+		//printf("NBSNecessaryRatios: NBS/A* %1.2f NBS/BS %1.2f NBS/MM %1.2f NBS/MM0 %1.2f\n",
+		//	   (double)nbs.GetNecessaryExpansions()/astar.GetNecessaryExpansions(),
+		//	   (double)nbs.GetNecessaryExpansions()/bs.GetNecessaryExpansions(),
+		//	   (double)nbs.GetNecessaryExpansions()/mm.GetNecessaryExpansions(),
+		//	   (double)nbs.GetNecessaryExpansions()/mm0.GetNecessaryExpansions()
+		//	   );
+		//printf("SelfNecessaryRatios: A* %1.2f BS %1.2f MM %1.2f NBS %1.2f MM0 %1.2f\n",
+		//	   (double)astar.GetNodesExpanded()/astar.GetNecessaryExpansions(),
+		//	   (double)bs.GetNodesExpanded()/bs.GetNecessaryExpansions(),
+		//	   (double)mm.GetNodesExpanded()/mm.GetNecessaryExpansions(),
+		//	   (double)nbs.GetNodesExpanded()/nbs.GetNecessaryExpansions(),
+		//	   (double)mm0.GetNodesExpanded()/mm0.GetNecessaryExpansions()
+		//	   );
 
 //		std::cout << "A*\t" << astar.GetNodesExpanded() << "\tNBS:\t" << nbs.GetNodesExpanded() << "\tBS*:\t" << bs.GetNodesExpanded();
 //		std::cout << "\tMM:\t" << mm.GetNodesExpanded() << "\n";
