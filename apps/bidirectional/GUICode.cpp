@@ -381,8 +381,8 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 		me->GLDrawLine(start, goal);
 		//me->GLLabelState(start, "Start", 5.0);
 		//me->GLLabelState(goal, "Goal", 5.0);
-		me->HighlightState(start, 5);
-		me->HighlightState(goal, 5);
+		//me->HighlightState(start, 5);
+		//me->HighlightState(goal, 5);
 	}
 	if (mouseTracked && 0)
 	{
@@ -406,13 +406,13 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 				//compare.OpenGLDraw();
 				forward.OpenGLDraw();
 				backward.OpenGLDraw();
-				me->HighlightState(start, 5);
-				me->HighlightState(goal, 5);
+				//me->HighlightState(start, 5);
+				//me->HighlightState(goal, 5);
 				if (selected)
 				{
 					if (!hideChosen)
-						me->HighlightState(chosenPoint, 5);
-					me->HighlightState(meetingPoint, 1);
+						//me->HighlightState(chosenPoint, 5);
+					//me->HighlightState(meetingPoint, 1);
 				}
 			}
 
@@ -429,15 +429,15 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 		if(!hidePre)
 			preProcess.OpenGLDraw();
 		for (int k = 0; k < goalPath.size();k++)
-			me->HighlightState(goalPath[k], 1);
+			//me->HighlightState(goalPath[k], 1);
 		//me->DrawPath(goalPath);
-		me->HighlightState(start, 5);
-		me->HighlightState(goal, 5);
+		//me->HighlightState(start, 5);
+		//me->HighlightState(goal, 5);
 		if (selected)
 		{
 			if(!hideChosen)
-				me->HighlightState(chosenPoint, 5);
-			me->HighlightState(meetingPoint, 1);
+				//me->HighlightState(chosenPoint, 5);
+			//me->HighlightState(meetingPoint, 1);
 		}
 
 
@@ -564,12 +564,12 @@ bool MyClickHandler(unsigned long windowID, int, int, point3d loc, tButtonType b
 				meetingPoint = goal;
 				forward.SetHeuristic(me);
 				forward.InitializeSearch(me, start,goal, forwardPath);
-				forward.SetStopGCost(forwardGLimit);
+				//forward.SetStopGCost(forwardGLimit);
 				//printf("for g limit: %f\n",forwardGLimit);
 				backward.SetHeuristic(me);
 				backward.InitializeSearch(me, goal,start, backwardPath);
 				double backwardGLimit = std::max(0.0, me->GetPathLength(goalPath)- forwardGLimit);
-				backward.SetStopGCost(backwardGLimit);
+				//backward.SetStopGCost(backwardGLimit);
 				//printf("back g limit: %f\n",backwardGLimit);
 				forwardSearchRunning = true;
 				backwardSearchRunning = true;
@@ -601,8 +601,8 @@ bool MyClickHandler(unsigned long windowID, int, int, point3d loc, tButtonType b
 			printf("ok1.1...\n");
 			std::vector<xyLoc> tmpPath;
 			backward.SetHeuristic(me);
-			backward.SetStopGCost(DBL_MAX);
-			backward.SetStopFCost(DBL_MAX);
+			//backward.SetStopGCost(DBL_MAX);
+			//backward.SetStopFCost(DBL_MAX);
 			backward.GetPath(me, start, chosenPoint, tmpPath);
 			printf("ok1.2...\n");
 			forwardGLimit = me->GetPathLength(tmpPath);
@@ -628,16 +628,16 @@ bool MyClickHandler(unsigned long windowID, int, int, point3d loc, tButtonType b
 			printf("ok4...\n");
 			forward.SetHeuristic(me);
 			forward.InitializeSearch(me, start, goal, forwardPath);
-			forward.SetStopGCost(forwardGLimit);
-			forward.SetStopFCost(me->GetPathLength(goalPath));
+			//forward.SetStopGCost(forwardGLimit);
+			//forward.SetStopFCost(me->GetPathLength(goalPath));
 
 			printf("for g limit: %f, f limit: %f\n", forwardGLimit, me->GetPathLength(goalPath));
 
 			backward.SetHeuristic(me);
 			backward.InitializeSearch(me, goal, start, backwardPath);
 			double backwardGLimit = std::max(0.0, me->GetPathLength(goalPath)- forwardGLimit);
-			backward.SetStopGCost(backwardGLimit);
-			backward.SetStopFCost(me->GetPathLength(goalPath));
+			//backward.SetStopGCost(backwardGLimit);
+			//backward.SetStopFCost(me->GetPathLength(goalPath));
 
 			printf("back g limit: %f, f limit: %f\n", backwardGLimit, me->GetPathLength(goalPath));
 
@@ -960,8 +960,8 @@ void SetupMapOverlay()
 
 	mo->SetColor(RR, colors::darkgray);
 	
-	forward.SetStopAfterGoal(false);
-	backward.SetStopAfterGoal(false);
+	//forward.SetStopAfterGoal(false);
+	//backward.SetStopAfterGoal(false);
 	std::vector<xyLoc> path;
 	forward.GetPath(me, start, goal, path);
 	backward.GetPath(me, goal, start, path);
@@ -1007,8 +1007,8 @@ void AnalyzeProblem(Map *m, Experiment e, double weight)
 {
 	WeightedHeuristic<xyLoc> wh(me, weight);
 	compare.SetHeuristic(&wh);
-	forward.SetStopAfterGoal(false);
-	backward.SetStopAfterGoal(false);
+	//forward.SetStopAfterGoal(false);
+	//backward.SetStopAfterGoal(false);
 	std::vector<xyLoc> path;
 	start.x = e.GetStartX();
 	start.y = e.GetStartY();
