@@ -410,7 +410,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 				//me->HighlightState(goal, 5);
 				if (selected)
 				{
-					if (!hideChosen)
+					//if (!hideChosen)
 						//me->HighlightState(chosenPoint, 5);
 					//me->HighlightState(meetingPoint, 1);
 				}
@@ -435,7 +435,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 		//me->HighlightState(goal, 5);
 		if (selected)
 		{
-			if(!hideChosen)
+			//if(!hideChosen)
 				//me->HighlightState(chosenPoint, 5);
 			//me->HighlightState(meetingPoint, 1);
 		}
