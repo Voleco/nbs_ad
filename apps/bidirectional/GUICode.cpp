@@ -24,12 +24,16 @@ Map *map = 0;
 MapEnvironment *me = 0;
 MapOverlay *mo;
 xyLoc start, goal;
+xyLoc chosenPoint;
+xyLoc meetingPoint;
+double forwardGLimit = DBL_MAX;
 
 std::vector<int> counts;
 
 bool mouseTracking = false;
 bool mouseTracked = false;
 bool drawSearch = true;
+bool choosingMeetingPoint = false;
 bool paused = false;
 void SetupMapOverlay();
 
@@ -37,6 +41,8 @@ int gStepsPerFrame = 2;
 
 TemplateAStar<xyLoc, tDirection, MapEnvironment> forward;
 TemplateAStar<xyLoc, tDirection, MapEnvironment> backward;
+
+TemplateAStar<xyLoc, tDirection, MapEnvironment> preProcess;
 
 ZeroHeuristic<xyLoc> *z = new ZeroHeuristic<xyLoc>;
 
@@ -48,6 +54,8 @@ MM<xyLoc, tDirection, MapEnvironment> mm0;
 TemplateAStar<xyLoc, tDirection, MapEnvironment> compare0;
 BSStar<xyLoc, tDirection, MapEnvironment> bs;
 
+bool forwardSearchRunning = false;
+bool backwardSearchRunning = false;
 bool mmSearchRunning = false;
 bool compareSearchRunning = false;
 bool mm0SearchRunning = false;
@@ -56,7 +64,12 @@ bool compare0SearchRunning = false;
 bool searchRan = false;
 std::vector<xyLoc> path;
 std::vector<xyLoc> goalPath;
+std::vector<xyLoc> forwardPath, backwardPath;
 bool recording = false;
+bool hidePre = false;
+bool hideChosen = false;
+
+bool selected = false;
 
 std::fstream svgFile;
 bool saveSVG = false;
@@ -87,6 +100,9 @@ void InstallHandlers()
 	InstallKeyboardHandler(MyKeyboardHandler, "Save SVG", "Export graphics to SVG File", kNoModifier, 's');
 	InstallKeyboardHandler(MyKeyboardHandler, "Record", "Start/stop recording movie", kNoModifier, 'r');
 	InstallKeyboardHandler(MyKeyboardHandler, "Draw", "Toggle drawing search", kNoModifier, 'd');
+	InstallKeyboardHandler(MyKeyboardHandler, "Choose", "Toggle choosing meeting point", kNoModifier, 'c');
+	InstallKeyboardHandler(MyKeyboardHandler, "Hide", "Hide open", kNoModifier, 'h');
+	InstallKeyboardHandler(MyKeyboardHandler, "Hide Chosen", "Hide chosen", kNoModifier, 'g');
 	InstallKeyboardHandler(MyKeyboardHandler, "Pause", "Toggle pause", kNoModifier, 'p');
 	InstallKeyboardHandler(MyKeyboardHandler, "Step", "Single algorithm step", kNoModifier, 'o');
 	InstallKeyboardHandler(MyKeyboardHandler, "Single Viewport", "Set to use a single viewport", kNoModifier, '1');
@@ -127,15 +143,15 @@ void MyWindowHandler(unsigned long windowID, tWindowEventType eType)
 		//map = new Map("/Users/nathanst/hog2/maps/random/random512-35-6.map");
 		//map = new Map("/Users/nathanst/hog2/maps/da2/lt_backalley_g.map");
 		//map = new Map("/Users/nathanst/hog2/maps/bgmaps/AR0011SR.map");
-		//map = new Map("/Users/nathanst/hog2/maps/bgmaps/AR0012SR.map");
+		map = new Map("/home/jingwei/Desktop/Shared/nbs_ad/hog2/maps/bgmaps/AR0012SR.map");
 		//map = new Map("/Users/nathanst/hog2/maps/rooms/8room_000.map");
 		//map = new Map("/Users/nathanst/hog2/maps/mazes/maze512-16-0.map");
 		//map = new Map("/Users/nathanst/hog2/maps/mazes/maze512-1-0.map");
 		//map = new Map("/Users/nathanst/hog2/maps/dao/orz107d.map");
-		{
-			map = new Map(128,128);
-			MakeMaze(map, 1);
-		}
+		//{
+		//	map = new Map(128,128);
+		//	MakeMaze(map, 1);
+		//}
 		
 		map->SetTileSet(kWinter);
 		me = new MapEnvironment(map);
@@ -146,6 +162,30 @@ void MyWindowHandler(unsigned long windowID, tWindowEventType eType)
 
 void StepAlgorithms()
 {
+	for (int x = 0; x < gStepsPerFrame; x++)
+	{
+		if (forwardSearchRunning)
+		{
+			forwardSearchRunning = !forward.DoSingleSearchStep(forwardPath);
+			if (!forwardSearchRunning)
+			{
+				printf("forward finished\n");
+			}
+		}
+	}
+
+	for (int x = 0; x < gStepsPerFrame; x++)
+	{
+		if (backwardSearchRunning)
+		{
+			backwardSearchRunning = !backward.DoSingleSearchStep(backwardPath);
+			if (!backwardSearchRunning)
+			{
+				printf("backward finished\n");
+			}
+		}
+	}
+
 	for (int x = 0; x < gStepsPerFrame/2; x++)
 	{
 		if (mmSearchRunning)
@@ -225,6 +265,22 @@ void MyKeyboardHandler(unsigned long windowID, tKeyboardModifier, char key)
 		case 'd':
 		{
 			drawSearch = !drawSearch;
+			break;
+		}
+		//choose a meeting point
+		case 'c':
+		{
+			choosingMeetingPoint = !choosingMeetingPoint;
+			break;
+		}
+		case 'h':
+		{
+			hidePre = !hidePre;
+			break;
+		}
+		case 'g':
+		{
+			hideChosen = !hideChosen;
 			break;
 		}
 		case '1':
@@ -323,6 +379,10 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 		glLineWidth(1.0);
 		me->SetColor(1.0, 1.0, 1.0);
 		me->GLDrawLine(start, goal);
+		//me->GLLabelState(start, "Start", 5.0);
+		//me->GLLabelState(goal, "Goal", 5.0);
+		me->HighlightState(start, 5);
+		me->HighlightState(goal, 5);
 	}
 	if (mouseTracked && 0)
 	{
@@ -342,14 +402,45 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 		if (searchRan)
 		{
 			if (viewport == 0)
-				nbs.OpenGLDraw();
+			{
+				//compare.OpenGLDraw();
+				forward.OpenGLDraw();
+				backward.OpenGLDraw();
+				me->HighlightState(start, 5);
+				me->HighlightState(goal, 5);
+				if (selected)
+				{
+					if (!hideChosen)
+						me->HighlightState(chosenPoint, 5);
+					me->HighlightState(meetingPoint, 1);
+				}
+			}
+
 			else if (viewport == 1)
-				compare.OpenGLDraw();
+				nbs.OpenGLDraw();
 			else if (viewport == 2)
 				bs.OpenGLDraw();
 			else if (viewport == 3)
 				mm.OpenGLDraw();
 		}
+	}
+	else
+	{
+		if(!hidePre)
+			preProcess.OpenGLDraw();
+		for (int k = 0; k < goalPath.size();k++)
+			me->HighlightState(goalPath[k], 1);
+		//me->DrawPath(goalPath);
+		me->HighlightState(start, 5);
+		me->HighlightState(goal, 5);
+		if (selected)
+		{
+			if(!hideChosen)
+				me->HighlightState(chosenPoint, 5);
+			me->HighlightState(meetingPoint, 1);
+		}
+
+
 	}
 
 	if (recording && viewport == GetNumPorts(windowID)-1)
@@ -361,12 +452,12 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 		printf("Saved %s\n", fname);
 		cnt++;
 	}
-	if (goalPath.size() > 0)
-	{
-		goal = goalPath.back();
-		goalPath.pop_back();
-		SetupMapOverlay();
-	}
+	//if (goalPath.size() > 0)
+	//{
+	//	goal = goalPath.back();
+	//	goalPath.pop_back();
+	//	SetupMapOverlay();
+	//}
 }
 
 bool MyClickHandler(unsigned long windowID, int, int, point3d loc, tButtonType button, tMouseEventType mType)
@@ -384,19 +475,26 @@ bool MyClickHandler(unsigned long windowID, int, int, point3d loc, tButtonType b
 	}
 	if (button != kLeftButton)
 		return false;
-	switch (mType)
+	if (choosingMeetingPoint == false)
 	{
+		switch (mType)
+		{
 		case kMouseDown:
 		{
-			delete mo;
-			mo = 0;
-			
+			if (mo) 
+			{
+				delete mo;
+				mo = 0;
+			}
+
+
 			int x, y;
 			map->GetPointFromCoordinate(loc, x, y);
 			start.x = x; start.y = y;
 			goal = start;
 			mouseTracking = true;
 			mouseTracked = true;
+
 			return true;
 		}
 		case kMouseDrag:
@@ -415,33 +513,36 @@ bool MyClickHandler(unsigned long windowID, int, int, point3d loc, tButtonType b
 				map->GetPointFromCoordinate(loc, x, y);
 				goal.x = x; goal.y = y;
 
+				preProcess.SetHeuristic(me);
+				preProcess.GetPath(me, start, goal, goalPath);
+
 				//100, 59) to (176, 112
-//				start.x = 100;
-//				start.y = 59;
-//				goal.x = 176;
-//				goal.y = 112;
-//
-//				//102, 170) to (82, 11 //  100, 192) to (106, 60
-//101, 143) to (93, 155
-//				start.x = 101;
-//				start.y = 143;
-//				goal.x = 93;
-//				goal.y = 155;
-				
-//				start.x = 75;
-//				start.y = 33;
-//				goal.x = 93;//78;
-//				goal.y = 116;//132-10;
-				
-//				forward.GetPath(me,
-//								{static_cast<uint16_t>(goal.x-17),
-//									static_cast<uint16_t>(goal.y+22)}, goal, goalPath);
-//				recording = true;
-				
-				
+				//				start.x = 100;
+				//				start.y = 59;
+				//				goal.x = 176;
+				//				goal.y = 112;
+				//
+				//				//102, 170) to (82, 11 //  100, 192) to (106, 60
+				//101, 143) to (93, 155
+				//				start.x = 101;
+				//				start.y = 143;
+				//				goal.x = 93;
+				//				goal.y = 155;
+
+				//				start.x = 75;
+				//				start.y = 33;
+				//				goal.x = 93;//78;
+				//				goal.y = 116;//132-10;
+
+				//				forward.GetPath(me,
+				//								{static_cast<uint16_t>(goal.x-17),
+				//									static_cast<uint16_t>(goal.y+22)}, goal, goalPath);
+				//				recording = true;
+
+
 				mouseTracking = false;
 				//SetupMapOverlay();
-				SetNumPorts(windowID, 3);
+				SetNumPorts(windowID, 1);
 				compare.SetHeuristic(me);
 				compare.InitializeSearch(me, start, goal, path);
 
@@ -458,10 +559,117 @@ bool MyClickHandler(unsigned long windowID, int, int, point3d loc, tButtonType b
 				mm0SearchRunning = true;
 				bsSearchRunning = true;
 				compare0SearchRunning = true;
-				
+
+
+				meetingPoint = goal;
+				forward.SetHeuristic(me);
+				forward.InitializeSearch(me, start,goal, forwardPath);
+				forward.SetStopGCost(forwardGLimit);
+				//printf("for g limit: %f\n",forwardGLimit);
+				backward.SetHeuristic(me);
+				backward.InitializeSearch(me, goal,start, backwardPath);
+				double backwardGLimit = std::max(0.0, me->GetPathLength(goalPath)- forwardGLimit);
+				backward.SetStopGCost(backwardGLimit);
+				//printf("back g limit: %f\n",backwardGLimit);
+				forwardSearchRunning = true;
+				backwardSearchRunning = true;
+
+				selected = false;
 				searchRan = true;
 				return true;
 			}
+		}
+	}
+	else
+	{
+		printf("else...\n");
+		switch (mType)
+		{
+		case kMouseDown:
+		{
+			return true;
+		}
+		case kMouseDrag:
+		{
+			return true;
+		}
+		case kMouseUp:
+		{
+			int x, y;
+			map->GetPointFromCoordinate(loc, x, y);
+			chosenPoint.x = x; chosenPoint.y = y;
+			printf("ok1.1...\n");
+			std::vector<xyLoc> tmpPath;
+			backward.SetHeuristic(me);
+			backward.SetStopGCost(DBL_MAX);
+			backward.SetStopFCost(DBL_MAX);
+			backward.GetPath(me, start, chosenPoint, tmpPath);
+			printf("ok1.2...\n");
+			forwardGLimit = me->GetPathLength(tmpPath);
+			printf("ok2...\n");
+			if (forwardGLimit >= me->GetPathLength(goalPath))
+			{
+				meetingPoint = goal;
+			}
+			else
+			{
+				std::vector<xyLoc> copyPath;
+				copyPath = goalPath;
+				while (copyPath.size() > 0)
+				{
+					copyPath.pop_back();
+					if (forwardGLimit >= me->GetPathLength(copyPath))
+						break;
+				}
+				meetingPoint = copyPath[copyPath.size() - 1];
+			}
+			printf("ok3...\n");
+			SetNumPorts(windowID, 1);
+			printf("ok4...\n");
+			forward.SetHeuristic(me);
+			forward.InitializeSearch(me, start, goal, forwardPath);
+			forward.SetStopGCost(forwardGLimit);
+			forward.SetStopFCost(me->GetPathLength(goalPath));
+
+			printf("for g limit: %f, f limit: %f\n", forwardGLimit, me->GetPathLength(goalPath));
+
+			backward.SetHeuristic(me);
+			backward.InitializeSearch(me, goal, start, backwardPath);
+			double backwardGLimit = std::max(0.0, me->GetPathLength(goalPath)- forwardGLimit);
+			backward.SetStopGCost(backwardGLimit);
+			backward.SetStopFCost(me->GetPathLength(goalPath));
+
+			printf("back g limit: %f, f limit: %f\n", backwardGLimit, me->GetPathLength(goalPath));
+
+
+			forwardSearchRunning = true;
+			backwardSearchRunning = true;
+
+			compare.SetHeuristic(me);
+			compare.InitializeSearch(me, start, goal, path);
+
+			compare0.SetHeuristic(z);
+			compare0.InitializeSearch(me, start, goal, path);
+			nbs.InitializeSearch(me, start, goal, me, me, path);
+			bs.InitializeSearch(me, start, goal, me, me, path);
+			mm.InitializeSearch(me, start, goal, me, me, path);
+			mm0.InitializeSearch(me, start, goal, z, z, path);
+
+			mmSearchRunning = true;
+			compareSearchRunning = true;
+			mm0SearchRunning = true;
+			bsSearchRunning = true;
+			compare0SearchRunning = true;
+
+			selected = true;
+
+			searchRan = true;
+
+			return true;
+
+
+		}
+		}
 	}
 	return false;
 }
@@ -974,7 +1182,7 @@ void AnalyzeNBS(const char *map, const char *scenario, double weight)
 		t2 = t.GetElapsedTime();
 		//printf("%d %1.1f BS nodes: %llu necessary %llu time: %1.2f \n", x, me->GetPathLength(bsPath), bs.GetNodesExpanded(), bs.GetNecessaryExpansions(), t.GetElapsedTime());
 		t.StartTimer();
-		//mm.GetPath(me, start, goal, me, me, mmPath);
+		mm.GetPath(me, start, goal, me, me, mmPath);
 		t.EndTimer();
 		t3 = t.GetElapsedTime();
 		//printf("%d %1.1f MM nodes: %llu necessary %llu time: %1.2f \n", x, me->GetPathLength(mmPath), mm.GetNodesExpanded(), mm.GetNecessaryExpansions(), t.GetElapsedTime());
@@ -984,7 +1192,7 @@ void AnalyzeNBS(const char *map, const char *scenario, double weight)
 		t4 = t.GetElapsedTime();
 		//printf("%d %1.1f NBS nodes: %llu necessary %llu time: %1.2f \n", x, me->GetPathLength(nbsPath), nbs.GetNodesExpanded(), nbs.GetNecessaryExpansions(), t.GetElapsedTime());
 		t.StartTimer();
-		//mm0.GetPath(me, start, goal, &z, &z, mm0Path);
+		mm0.GetPath(me, start, goal, &z, &z, mm0Path);
 		t.EndTimer();
 		t5 = t.GetElapsedTime();
 		//printf("%d %1.1f MM0 nodes: %llu necessary %llu time: %1.2f \n", x, me->GetPathLength(mm0Path), mm0.GetNodesExpanded(), mm0.GetNecessaryExpansions(), t.GetElapsedTime());
