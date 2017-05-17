@@ -519,6 +519,8 @@ void MM<state, action, environment, priorityQueue>::Expand(priorityQueue &curren
 					//gcount does not change
 #ifdef EFFICIENT
 					fcount[childData.g+childData.h]--;
+					if (fcount[parentData.g + parentData.h] == 0)
+						fcount.erase(fcount.find(parentData.g + parentData.h));
 #else
 					count[{childData.g, childData.h}]--;
 #endif
@@ -540,6 +542,10 @@ void MM<state, action, environment, priorityQueue>::Expand(priorityQueue &curren
 #ifdef EFFICIENT
 					gcount[childData.g]--;
 					fcount[childData.g + childData.h]--;
+					if (gcount[parentData.g] == 0)
+						gcount.erase(gcount.find(parentData.g));
+					if (fcount[parentData.g + parentData.h] == 0)
+						fcount.erase(fcount.find(parentData.g + parentData.h));
 #else
 					count[{childData.g, childData.h}]--;
 #endif

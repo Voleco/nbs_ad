@@ -194,7 +194,7 @@ void TestPancakeRandom()
 				mm.GetPath(&pancake, start, goal, &pancake, &pancake2, mmPath);
 				t4.EndTimer();
 				printf("GAP-%d MM found path length %1.0f; %llu expanded; %llu necessary; %1.2fs elapsed\n", gap, pancake.GetPathLength(mmPath),
-					   mm.GetNodesExpanded(), mm.GetNecessaryExpansions(), t1.GetElapsedTime());
+					   mm.GetNodesExpanded(), mm.GetNecessaryExpansions(), t4.GetElapsedTime());
 			}
 
 			// MM0
@@ -208,7 +208,7 @@ void TestPancakeRandom()
 				mm.GetPath(&pancake, start, goal, &z, &z, mmPath);
 				t4.EndTimer();
 				printf("GAP-%d MM0 found path length %1.0f; %llu expanded; %llu necessary; %1.2fs elapsed\n", count, pancake.GetPathLength(mmPath),
-					   mm.GetNodesExpanded(), mm.GetNecessaryExpansions(), t1.GetElapsedTime());
+					   mm.GetNodesExpanded(), mm.GetNecessaryExpansions(), t4.GetElapsedTime());
 			}
 
 		}
