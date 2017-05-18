@@ -44,6 +44,11 @@ namespace std {
 	};
 }
 
+//static bool operator< (const std::pair<double, double>& p1, const std::pair<double, double>& p2)
+//{
+//	return (p1.first + p1.second < p2.first + p2.second);
+//}
+
 
 template <class state, class action, class environment, class priorityQueue = AStarOpenClosed<state, MMCompare<state>> >
 class MM {
@@ -249,19 +254,45 @@ bool MM<state, action, environment, priorityQueue>::DoSingleSearchStep(std::vect
 	const AStarOpenClosedData<state> &nextForward = forwardQueue.Lookat(forward);
 	const AStarOpenClosedData<state> &nextBackward = backwardQueue.Lookat(backward);
 
-	double p1 = std::max(nextForward.g+nextForward.h, nextForward.g*2);
-	double p2 = std::max(nextBackward.g+nextBackward.h, nextBackward.g*2);
+	double p1 = std::max(nextForward.g+nextForward.h, nextForward.g*2 + epsilon);
+	double p2 = std::max(nextBackward.g+nextBackward.h, nextBackward.g*2 + epsilon);
+	bool done1 = false;
 	if (p1 > oldp1)
 	{
 //		printf("Forward priority to %1.2f [%llu expanded - %1.2fs]\n", p1, GetNodesExpanded(), t.EndTimer());
 		oldp1 = p1;
+
+//#ifdef EFFICIENT
+		if (currentCost < DBL_MAX && p1>=currentCost)
+			done1 = true;
+//#endif // EFFICIENT
+
 		//PrintOpenStats(f);
 	}
 	if (p2 > oldp2)
 	{
 //		printf("Backward priority to %1.2f [%llu expanded - %1.2fs]\n", p2, GetNodesExpanded(), t.EndTimer());
 		oldp2 = p2;
+//#ifdef EFFICIENT
+		if (currentCost < DBL_MAX && p2>=currentCost)
+			done1 = true;
+//#endif // EFFICIENT
 		//PrintOpenStats(b);
+	}
+
+	if (done1)
+	{
+		//			PrintOpenStats(f);
+		//			PrintOpenStats(b);
+
+		std::vector<state> pFor, pBack;
+		ExtractPathToGoal(middleNode, pBack);
+		ExtractPathToStart(middleNode, pFor);
+		reverse(pFor.begin(), pFor.end());
+		thePath = pFor;
+		thePath.insert(thePath.end(), pBack.begin() + 1, pBack.end());
+
+		return true;
 	}
 	
 	if (fless(p1, p2))
@@ -323,29 +354,58 @@ bool MM<state, action, environment, priorityQueue>::DoSingleSearchStep(std::vect
 		double backwardP;
 	
 #ifdef EFFICIENT
-		if (!fGCounts.empty()) 
+		while (!fGCounts.empty()) 
 		{
 			auto iFG = fGCounts.begin();
-			minForwardG = iFG->first;
+			if (iFG->second != 0)
+			{
+				minForwardG = iFG->first;
+				break;
+			}
+			else
+				fGCounts.erase(iFG);
+
 		}
 
-		if (!bGCounts.empty())
+		while (!bGCounts.empty())
 		{
 			auto iBG = bGCounts.begin();
-			minBackwardG = iBG->first;
+			if (iBG->second != 0)
+			{
+				minBackwardG = iBG->first;
+				break;
+			}
+			else
+				bGCounts.erase(iBG);
+
 		}
 
-		if(!fFCounts.empty())
+		while (!fFCounts.empty())
 		{
 			auto iFF = fFCounts.begin();
-			minForwardF = iFF->first;
+			if (iFF->second != 0)
+			{
+				minForwardF = iFF->first;
+				break;
+			}
+			else
+				 fFCounts.erase(iFF);
+
 		}
-		
-		if (!bFCounts.empty())
+
+		while (!bFCounts.empty())
 		{
 			auto iBF = bFCounts.begin();
-			minBackwardF = iBF->first;
+			if (iBF->second != 0)
+			{
+				minBackwardF = iBF->first;
+				break;
+			}
+			else
+				bFCounts.erase(iBF);
+
 		}
+
 
 #else
 		for (auto i = f.begin(); i != f.end(); i++)
@@ -376,9 +436,9 @@ bool MM<state, action, environment, priorityQueue>::DoSingleSearchStep(std::vect
 		
 		{
 			auto iB = backwardQueue.Lookat(backwardQueue.Peek());
-			backwardP = std::max(iB.g+iB.h, iB.g*2);
+			backwardP = std::max(iB.g+iB.h, iB.g*2+epsilon);
 			auto iF = forwardQueue.Lookat(forwardQueue.Peek());
-			forwardP = std::max(iF.g+iF.h, iF.g*2);
+			forwardP = std::max(iF.g+iF.h, iF.g*2+epsilon);
 		}
 		bool done = false;
 		if (minForwardF == DBL_MAX)
@@ -464,7 +524,7 @@ void MM<state, action, environment, priorityQueue>::Expand(priorityQueue &curren
 #endif
 
 #ifdef EFFICIENT
-		if (fcount[parentData.g + parentData.h]==0 && currentCost < DBL_MAX)
+		if ((fcount[parentData.g + parentData.h]==0 || gcount[parentData.g]==0) && currentCost < DBL_MAX)
 #else
 		if (count[{parentData.g, parentData.h}] == 0 && currentCost < DBL_MAX)
 #endif
@@ -472,10 +532,10 @@ void MM<state, action, environment, priorityQueue>::Expand(priorityQueue &curren
 			recheckPath = true;
 		}
 #ifdef EFFICIENT
-		if (gcount[parentData.g] == 0)
-			gcount.erase(gcount.find(parentData.g));
-		if (fcount[parentData.g+ parentData.h] == 0)
-			fcount.erase(fcount.find(parentData.g+ parentData.h));
+		//if (gcount[parentData.g] == 0)
+		//	gcount.erase(gcount.find(parentData.g));
+		//if (fcount[parentData.g+ parentData.h] == 0)
+		//	fcount.erase(fcount.find(parentData.g+ parentData.h));
 #endif
 
 	}
@@ -519,8 +579,8 @@ void MM<state, action, environment, priorityQueue>::Expand(priorityQueue &curren
 					//gcount does not change
 #ifdef EFFICIENT
 					fcount[childData.g+childData.h]--;
-					if (fcount[parentData.g + parentData.h] == 0)
-						fcount.erase(fcount.find(parentData.g + parentData.h));
+					//if (fcount[childData.g + childData.h] == 0)
+					//	fcount.erase(fcount.find(childData.g + childData.h));
 #else
 					count[{childData.g, childData.h}]--;
 #endif
@@ -542,10 +602,10 @@ void MM<state, action, environment, priorityQueue>::Expand(priorityQueue &curren
 #ifdef EFFICIENT
 					gcount[childData.g]--;
 					fcount[childData.g + childData.h]--;
-					if (gcount[parentData.g] == 0)
-						gcount.erase(gcount.find(parentData.g));
-					if (fcount[parentData.g + parentData.h] == 0)
-						fcount.erase(fcount.find(parentData.g + parentData.h));
+					//if (gcount[childData.g] == 0)
+					//	gcount.erase(gcount.find(childData.g));
+					//if (fcount[childData.g + childData.h] == 0)
+					//	fcount.erase(fcount.find(childData.g + childData.h));
 #else
 					count[{childData.g, childData.h}]--;
 #endif
