@@ -8,6 +8,7 @@
 
 #include <vector>
 #include <fstream>
+#include <string>
 #include "GUICode.h"
 #include "ScenarioLoader.h"
 #include "Map2DEnvironment.h"
@@ -18,6 +19,9 @@
 #include "SVGUtil.h"
 #include "NBSQueueGF.h"
 #include "NBS.h"
+#include "NBSGreedy.h"
+#include "NBSLazy.h"
+#include "NBSSwitch.h"
 #include "BSStar.h"
 
 Map *map = 0;
@@ -32,7 +36,7 @@ std::vector<int> counts;
 
 bool mouseTracking = false;
 bool mouseTracked = false;
-bool drawSearch = true;
+bool drawSearch = false;
 bool choosingMeetingPoint = false;
 bool paused = false;
 void SetupMapOverlay();
@@ -49,6 +53,8 @@ ZeroHeuristic<xyLoc> *z = new ZeroHeuristic<xyLoc>;
 
 MM<xyLoc, tDirection, MapEnvironment> mm;
 NBS<xyLoc, tDirection, MapEnvironment> nbs;
+NBSGreedy<xyLoc, tDirection, MapEnvironment> nbsgreedy;
+NBSLazy<xyLoc, tDirection, MapEnvironment> nbslazy;
 TemplateAStar<xyLoc, tDirection, MapEnvironment> compare;
 MM<xyLoc, tDirection, MapEnvironment> mm0;
 TemplateAStar<xyLoc, tDirection, MapEnvironment> compare0;
@@ -381,8 +387,8 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 		me->GLDrawLine(start, goal);
 		//me->GLLabelState(start, "Start", 5.0);
 		//me->GLLabelState(goal, "Goal", 5.0);
-		//me->HighlightState(start, 5);
-		//me->HighlightState(goal, 5);
+		me->HighlightState(start, 5);
+		me->HighlightState(goal, 5);
 	}
 	if (mouseTracked && 0)
 	{
@@ -406,13 +412,13 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 				//compare.OpenGLDraw();
 				forward.OpenGLDraw();
 				backward.OpenGLDraw();
-				//me->HighlightState(start, 5);
-				//me->HighlightState(goal, 5);
+				me->HighlightState(start, 5);
+				me->HighlightState(goal, 5);
 				if (selected)
 				{
-					//if (!hideChosen)
-						//me->HighlightState(chosenPoint, 5);
-					//me->HighlightState(meetingPoint, 1);
+					if (!hideChosen)
+						me->HighlightState(chosenPoint, 5);
+					me->HighlightState(meetingPoint, 1);
 				}
 			}
 
@@ -429,15 +435,15 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 		if(!hidePre)
 			preProcess.OpenGLDraw();
 		for (int k = 0; k < goalPath.size();k++)
-			//me->HighlightState(goalPath[k], 1);
+			me->HighlightState(goalPath[k], 1);
 		//me->DrawPath(goalPath);
-		//me->HighlightState(start, 5);
-		//me->HighlightState(goal, 5);
+		me->HighlightState(start, 5);
+		me->HighlightState(goal, 5);
 		if (selected)
 		{
-			//if(!hideChosen)
-				//me->HighlightState(chosenPoint, 5);
-			//me->HighlightState(meetingPoint, 1);
+			if(!hideChosen)
+				me->HighlightState(chosenPoint, 5);
+			me->HighlightState(meetingPoint, 1);
 		}
 
 
@@ -447,7 +453,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 	{
 		static int cnt = 0;
 		char fname[255];
-		sprintf(fname, "/Users/nathanst/Movies/tmp/BI-%d%d%d%d", (cnt/1000)%10, (cnt/100)%10, (cnt/10)%10, cnt%10);
+		sprintf(fname, "/home/jingwei/Desktop/Shared/Movies/tmp1/BI-%d%d%d%d", (cnt/1000)%10, (cnt/100)%10, (cnt/10)%10, cnt%10);
 		SaveScreenshot(windowID, fname);
 		printf("Saved %s\n", fname);
 		cnt++;
@@ -549,6 +555,8 @@ bool MyClickHandler(unsigned long windowID, int, int, point3d loc, tButtonType b
 				compare0.SetHeuristic(z);
 				compare0.InitializeSearch(me, start, goal, path);
 				nbs.InitializeSearch(me, start, goal, me, me, path);
+				nbsgreedy.InitializeSearch(me, start, goal, me, me, path);
+				nbslazy.InitializeSearch(me, start, goal, me, me, path);
 				bs.InitializeSearch(me, start, goal, me, me, path);
 				//mm.InitializeSearch(me, start, goal, z, z, path);
 				mm.InitializeSearch(me, start, goal, me, me, path);
@@ -564,12 +572,12 @@ bool MyClickHandler(unsigned long windowID, int, int, point3d loc, tButtonType b
 				meetingPoint = goal;
 				forward.SetHeuristic(me);
 				forward.InitializeSearch(me, start,goal, forwardPath);
-				//forward.SetStopGCost(forwardGLimit);
+				forward.SetStopGCost(forwardGLimit);
 				//printf("for g limit: %f\n",forwardGLimit);
 				backward.SetHeuristic(me);
 				backward.InitializeSearch(me, goal,start, backwardPath);
 				double backwardGLimit = std::max(0.0, me->GetPathLength(goalPath)- forwardGLimit);
-				//backward.SetStopGCost(backwardGLimit);
+				backward.SetStopGCost(backwardGLimit);
 				//printf("back g limit: %f\n",backwardGLimit);
 				forwardSearchRunning = true;
 				backwardSearchRunning = true;
@@ -601,8 +609,8 @@ bool MyClickHandler(unsigned long windowID, int, int, point3d loc, tButtonType b
 			printf("ok1.1...\n");
 			std::vector<xyLoc> tmpPath;
 			backward.SetHeuristic(me);
-			//backward.SetStopGCost(DBL_MAX);
-			//backward.SetStopFCost(DBL_MAX);
+			backward.SetStopGCost(DBL_MAX);
+			backward.SetStopFCost(DBL_MAX);
 			backward.GetPath(me, start, chosenPoint, tmpPath);
 			printf("ok1.2...\n");
 			forwardGLimit = me->GetPathLength(tmpPath);
@@ -628,16 +636,16 @@ bool MyClickHandler(unsigned long windowID, int, int, point3d loc, tButtonType b
 			printf("ok4...\n");
 			forward.SetHeuristic(me);
 			forward.InitializeSearch(me, start, goal, forwardPath);
-			//forward.SetStopGCost(forwardGLimit);
-			//forward.SetStopFCost(me->GetPathLength(goalPath));
+			forward.SetStopGCost(forwardGLimit);
+			forward.SetStopFCost(me->GetPathLength(goalPath));
 
 			printf("for g limit: %f, f limit: %f\n", forwardGLimit, me->GetPathLength(goalPath));
 
 			backward.SetHeuristic(me);
 			backward.InitializeSearch(me, goal, start, backwardPath);
 			double backwardGLimit = std::max(0.0, me->GetPathLength(goalPath)- forwardGLimit);
-			//backward.SetStopGCost(backwardGLimit);
-			//backward.SetStopFCost(me->GetPathLength(goalPath));
+			backward.SetStopGCost(backwardGLimit);
+			backward.SetStopFCost(me->GetPathLength(goalPath));
 
 			printf("back g limit: %f, f limit: %f\n", backwardGLimit, me->GetPathLength(goalPath));
 
@@ -651,6 +659,8 @@ bool MyClickHandler(unsigned long windowID, int, int, point3d loc, tButtonType b
 			compare0.SetHeuristic(z);
 			compare0.InitializeSearch(me, start, goal, path);
 			nbs.InitializeSearch(me, start, goal, me, me, path);
+			nbsgreedy.InitializeSearch(me, start, goal, me, me, path);
+			nbslazy.InitializeSearch(me, start, goal, me, me, path);
 			bs.InitializeSearch(me, start, goal, me, me, path);
 			mm.InitializeSearch(me, start, goal, me, me, path);
 			mm0.InitializeSearch(me, start, goal, z, z, path);
@@ -1136,6 +1146,8 @@ void AnalyzeMap(const char *map, const char *scenario, double weight)
 void AnalyzeNBS(const char *map, const char *scenario, double weight)
 {
 	NBS<xyLoc, tDirection, MapEnvironment> nbs;
+	NBSGreedy<xyLoc, tDirection, MapEnvironment> nbsgreedy;
+	NBSLazy<xyLoc, tDirection, MapEnvironment> nbslazy;
 	BSStar<xyLoc, tDirection, MapEnvironment> bs;
 	//NBS<xyLoc, tDirection, MapEnvironment, NBSQueueGF<xyLoc>, BDOpenClosed<xyLoc, NBSGLowHigh<xyLoc>, NBSFLowHigh<xyLoc>>> nbs;
 	
@@ -1167,22 +1179,24 @@ void AnalyzeNBS(const char *map, const char *scenario, double weight)
 		std::vector<xyLoc> mmPath;
 		std::vector<xyLoc> mm0Path;
 		std::vector<xyLoc> nbsPath;
+		std::vector<xyLoc> nbsgreedyPath;
+		std::vector<xyLoc> nbslazyPath;
 		std::vector<xyLoc> bsPath;
 		astar.SetHeuristic(me);
 
-		double t1, t2, t3, t4, t5;
+		double t1, t2, t3, t4, t5,t6;
 		t.StartTimer();
 		astar.GetPath(me, start, goal, correctPath);
 		t.EndTimer();
 		t1 = t.GetElapsedTime();
 		//printf("%d %1.1f A* nodes: %llu necessary %llu time: %1.2f \n", x, me->GetPathLength(correctPath), astar.GetNodesExpanded(), astar.GetNecessaryExpansions(), t.GetElapsedTime());
 		t.StartTimer();
-		bs.GetPath(me, start, goal, me, me, bsPath);
+		//bs.GetPath(me, start, goal, me, me, bsPath);
 		t.EndTimer();
 		t2 = t.GetElapsedTime();
 		//printf("%d %1.1f BS nodes: %llu necessary %llu time: %1.2f \n", x, me->GetPathLength(bsPath), bs.GetNodesExpanded(), bs.GetNecessaryExpansions(), t.GetElapsedTime());
 		t.StartTimer();
-		mm.GetPath(me, start, goal, me, me, mmPath);
+		//mm.GetPath(me, start, goal, me, me, mmPath);
 		t.EndTimer();
 		t3 = t.GetElapsedTime();
 		//printf("%d %1.1f MM nodes: %llu necessary %llu time: %1.2f \n", x, me->GetPathLength(mmPath), mm.GetNodesExpanded(), mm.GetNecessaryExpansions(), t.GetElapsedTime());
@@ -1192,9 +1206,14 @@ void AnalyzeNBS(const char *map, const char *scenario, double weight)
 		t4 = t.GetElapsedTime();
 		//printf("%d %1.1f NBS nodes: %llu necessary %llu time: %1.2f \n", x, me->GetPathLength(nbsPath), nbs.GetNodesExpanded(), nbs.GetNecessaryExpansions(), t.GetElapsedTime());
 		t.StartTimer();
-		mm0.GetPath(me, start, goal, &z, &z, mm0Path);
+		//mm0.GetPath(me, start, goal, &z, &z, mm0Path);
+		nbslazy.GetPath(me, start, goal, me, me, nbslazyPath);
 		t.EndTimer();
 		t5 = t.GetElapsedTime();
+		t.StartTimer();
+		nbsgreedy.GetPath(me, start, goal, me, me, nbsgreedyPath);
+		t.EndTimer();
+		t6 = t.GetElapsedTime();
 		//printf("%d %1.1f MM0 nodes: %llu necessary %llu time: %1.2f \n", x, me->GetPathLength(mm0Path), mm0.GetNodesExpanded(), mm0.GetNecessaryExpansions(), t.GetElapsedTime());
 
 		//printf("NBSNecessaryRatios: NBS/A* %1.2f NBS/BS %1.2f NBS/MM %1.2f NBS/MM0 %1.2f\n",
@@ -1215,37 +1234,44 @@ void AnalyzeNBS(const char *map, const char *scenario, double weight)
 			<< astar.GetNodesExpanded() << "\t"
 			<< bs.GetNodesExpanded() << "\t"
 			<< mm.GetNodesExpanded() << "\t"
+			<< mm.GetNecessaryExpansions() << "\t"
 			<< nbs.GetNodesExpanded() << "\t"
-			<< mm0.GetNodesExpanded() << "\n";
+			//<< mm0.GetNodesExpanded() << "\t"
+			<<nbslazy.GetNodesExpanded()<<"\t"
+			<< nbsgreedy.GetNodesExpanded() << "\n";
 		std::cout << "time:\t"
 			<< t1 << "\t"
 			<< t2 << "\t"
 			<< t3 << "\t"
 			<< t4 << "\t"
-			<< t5 << "\n";
+			<< t5 << "\t"
+			<< t6 << "\n";
 //		std::cout << "\tMM:\t" << mm.GetNodesExpanded() << "\n";
 //		printf("NBS* total\t%llu\tnecessary\t%llu\tdoubles\t%llu\t", nbs.GetNodesExpanded(), nbs.GetNecessaryExpansions(), nbs.GetDoubleExpansions());
 //		printf("A* total\t%llu\tnecessary\t%llu\tratio\t%1.3f\n", astar.GetNodesExpanded(), astar.GetNecessaryExpansions(),
 //			   (double)nbs.GetNecessaryExpansions()/astar.GetNecessaryExpansions());
 		//if (!fequal)
-		if (!fequal(me->GetPathLength(nbsPath), me->GetPathLength(correctPath)))
+		//if (!fequal(me->GetPathLength(nbsgreedyPath), me->GetPathLength(correctPath)))
+		if (!fequal(nbslazy.GetSolutionCost(), me->GetPathLength(correctPath)))
 		{
 			std::cout << "error solution cost:\t expected cost\n";
-			std::cout << me->GetPathLength(nbsPath) << "\t" << me->GetPathLength(correctPath) << "\n";
-			double d;
-			for (auto x : correctPath)
-			{
-				astar.GetClosedListGCost(x, d);
-				auto t = nbs.GetNodeForwardLocation(x);
-				auto u = nbs.GetNodeBackwardLocation(x);
-				std::cout << x << " is on " << t << " and " << u << "\n";
-				std::cout << "True g: " << d;
-				if (t != kUnseen)
-					std::cout << " forward g: " << nbs.GetNodeForwardG(x);
-				if (u != kUnseen)
-					std::cout << " backward g: " << nbs.GetNodeBackwardG(x);
-				std::cout << "\n";
-			}
+			//std::cout << me->GetPathLength(nbsgreedyPath) << "\t" << me->GetPathLength(correctPath) << "\n";
+			std::cout << nbslazy.GetSolutionCost() << "\t" << me->GetPathLength(correctPath) << "\n";
+
+			//double d;
+			//for (auto x : correctPath)
+			//{
+			//	astar.GetClosedListGCost(x, d);
+			//	auto t = nbs.GetNodeForwardLocation(x);
+			//	auto u = nbs.GetNodeBackwardLocation(x);
+			//	std::cout << x << " is on " << t << " and " << u << "\n";
+			//	std::cout << "True g: " << d;
+			//	if (t != kUnseen)
+			//		std::cout << " forward g: " << nbs.GetNodeForwardG(x);
+			//	if (u != kUnseen)
+			//		std::cout << " backward g: " << nbs.GetNodeBackwardG(x);
+			//	std::cout << "\n";
+			//}
 			exit(0);
 		}
 		
@@ -1253,6 +1279,303 @@ void AnalyzeNBS(const char *map, const char *scenario, double weight)
 	printf("Exiting with no errors\n");
 	exit(0);
 }
+
+void Predictor(const char *map, const char *scenario, double weight)
+{
+	int MAX_STEP = 50;
+	double SIGNIFICANT = 10.0;
+	double DELTA = 1.0;
+	double errorF, errorB;
+	NBS<xyLoc, tDirection, MapEnvironment> nbs;
+
+	TemplateAStar<xyLoc, tDirection, MapEnvironment> forwardAStar;
+	TemplateAStar<xyLoc, tDirection, MapEnvironment> backwardAStar;
+
+	printf("Loading %s with scenario %s\n", map, scenario);
+	ScenarioLoader s(scenario);
+	Map *m = new Map(map);
+	me = new MapEnvironment(m);
+	me->SetDiagonalCost(1.5);
+
+	Timer t;
+	ZeroHeuristic<xyLoc> z;
+
+	for (int x = s.GetNumExperiments() - 1; x >= 0; x--) // 547 to 540
+	{
+		if (fequal(s.GetNthExperiment(x).GetDistance(), 0))
+			continue;
+		xyLoc start, goal;
+		start.x = s.GetNthExperiment(x).GetStartX();
+		start.y = s.GetNthExperiment(x).GetStartY();
+		goal.x = s.GetNthExperiment(x).GetGoalX();
+		goal.y = s.GetNthExperiment(x).GetGoalY();
+		printf("Problem %d of %d from ", x, s.GetNumExperiments());
+		std::cout << start << " to " << goal << "\n";
+		std::vector<xyLoc> forwardAStarPath;
+		std::vector<xyLoc> backwardAStarPath;
+
+		std::vector<xyLoc> nbsPath;
+
+		forwardAStar.SetHeuristic(me);
+		backwardAStar.SetHeuristic(me);
+
+		double t1, t2, t3, t4, t5, t6;
+		
+		
+		forwardAStar.InitializeSearch(me, start, goal, forwardAStarPath);
+		backwardAStar.InitializeSearch(me, goal, start, backwardAStarPath);
+
+
+		t.StartTimer();
+
+		bool solved = false;
+		for (int i = 0; i < MAX_STEP; i++)
+		{
+			if (forwardAStar.DoSingleSearchStep(forwardAStarPath) || backwardAStar.DoSingleSearchStep(backwardAStarPath))
+			{
+				solved = true;
+				break;
+			}
+		}
+		if (solved)
+			continue;
+
+		errorF = 0;
+		errorB = 0;
+
+		for (int i = 0; i < forwardAStar.GetNumItems(); i++)
+		{
+			auto item = forwardAStar.GetItem(i);
+			if (item.where != kClosedList)
+				continue;
+			auto st = item.data;
+			double reverseH = me->HCost(st, start);
+
+			errorF += item.g - reverseH;
+		}
+
+		for (int i = 0; i < backwardAStar.GetNumItems(); i++)
+		{
+			auto item = backwardAStar.GetItem(i);
+			if (item.where != kClosedList)
+				continue;
+			auto st = item.data;
+			double reverseH = me->HCost(st, goal);
+
+			errorB += item.g - reverseH;
+		}
+
+		int openSizeF = forwardAStar.GetNumOpenItems();
+		int openSizeB = backwardAStar.GetNumOpenItems();
+		std::cout << "errors:\t"
+			<< errorF << "\t"
+			<< errorB << "\n";
+
+		int nodeExp = 100;
+		
+		if (errorF > SIGNIFICANT && errorB > SIGNIFICANT)
+		{
+			nbs.GetPath(me, start, goal, me, me, nbsPath);
+			nodeExp += nbs.GetNodesExpanded();
+		}
+		else if (errorF - errorB < DELTA && errorF - errorB > 0 - DELTA)//approximately equal
+		{
+			if (openSizeF<openSizeB)
+			{
+				forwardAStar.GetPath(me, start, goal, forwardAStarPath);
+				nodeExp += forwardAStar.GetNodesExpanded();
+			}
+			else
+			{
+				backwardAStar.GetPath(me, goal, start, backwardAStarPath);
+				nodeExp += backwardAStar.GetNodesExpanded();
+			}
+		}
+		else if (errorF - errorB > DELTA)
+		{
+			forwardAStar.GetPath(me, start, goal, forwardAStarPath);
+			nodeExp += forwardAStar.GetNodesExpanded();
+		}
+		else
+		{
+			backwardAStar.GetPath(me, goal, start, backwardAStarPath);
+			nodeExp += backwardAStar.GetNodesExpanded();
+		}
+			
+
+		t.EndTimer();
+		t1 = t.GetElapsedTime();
+	
+
+		t.StartTimer();
+		forwardAStar.GetPath(me, start, goal, forwardAStarPath);
+		t.EndTimer();
+		t2 = t.GetElapsedTime();
+		
+		t.StartTimer();
+		backwardAStar.GetPath(me, goal, start, backwardAStarPath);
+		t.EndTimer();
+		t3 = t.GetElapsedTime();
+		
+		t.StartTimer();
+		nbs.GetPath(me, start, goal, me, me, nbsPath);
+		t.EndTimer();
+		t4 = t.GetElapsedTime();
+	
+
+		std::cout << "nodes:\t"
+			<< nodeExp << "\t"
+			<< forwardAStar.GetNodesExpanded() << "\t"
+			<< backwardAStar.GetNodesExpanded() << "\t"
+			<< nbs.GetNodesExpanded() << "\n";
+		//std::cout << "time:\t"
+		//	<< t1 << "\t"
+		//	<< t2 << "\t"
+		//	<< t3 << "\t"
+		//	<< t4 << "\n";
+
+	}
+	printf("Exiting with no errors\n");
+	exit(0);
+}
+
+void AnalyzeBD(const char *scenario, int max_step)
+{
+	double errorF, errorB;
+	NBS<xyLoc, tDirection, MapEnvironment> nbs;
+
+	TemplateAStar<xyLoc, tDirection, MapEnvironment> forwardAStar;
+	TemplateAStar<xyLoc, tDirection, MapEnvironment> backwardAStar;
+
+	printf("Loading scenario %s\n", scenario);
+	ScenarioLoader s(scenario);
+
+	std::string base = "/home/jingwei/Desktop/Shared/nbs_ad/hog2/";
+	Timer t;
+	ZeroHeuristic<xyLoc> z;
+
+	std::string mapName = "";
+	for (int x = s.GetNumExperiments() - 1; x >= 0; x--)
+	{
+		if (fequal(s.GetNthExperiment(x).GetDistance(), 0))
+			continue;
+		std::string currentMapName(s.GetNthExperiment(x).GetMapName());
+		if (mapName.compare(currentMapName)!=0)
+		{
+			mapName = currentMapName;
+			std::string fullPath = base + mapName;
+			Map *m = new Map(fullPath.c_str());
+			me = new MapEnvironment(m);
+			me->SetDiagonalCost(1.5);
+		}
+		xyLoc start, goal;
+		start.x = s.GetNthExperiment(x).GetStartX();
+		start.y = s.GetNthExperiment(x).GetStartY();
+		goal.x = s.GetNthExperiment(x).GetGoalX();
+		goal.y = s.GetNthExperiment(x).GetGoalY();
+		printf("Problem %d of %d from ", x, s.GetNumExperiments());
+		std::cout << start << " to " << goal << " "<<mapName <<"\n";
+		std::vector<xyLoc> forwardAStarPath;
+		std::vector<xyLoc> backwardAStarPath;
+
+		std::vector<xyLoc> nbsPath;
+
+		forwardAStar.SetHeuristic(me);
+		backwardAStar.SetHeuristic(me);
+
+		double t1, t2, t3, t4, t5, t6;
+
+
+		forwardAStar.InitializeSearch(me, start, goal, forwardAStarPath);
+		backwardAStar.InitializeSearch(me, goal, start, backwardAStarPath);
+
+
+		t.StartTimer();
+
+		bool solved = false;
+		for (int i = 0; i < max_step; i++)
+		{
+			if (forwardAStar.DoSingleSearchStep(forwardAStarPath) || backwardAStar.DoSingleSearchStep(backwardAStarPath))
+			{
+				solved = true;
+				break;
+			}
+		}
+		if (solved)
+			continue;
+
+		errorF = 0;
+		errorB = 0;
+
+		for (int i = 0; i < forwardAStar.GetNumItems(); i++)
+		{
+			auto item = forwardAStar.GetItem(i);
+			if (item.where != kClosedList)
+				continue;
+			auto st = item.data;
+			double reverseH = me->HCost(st, start);
+
+			errorF += item.g - reverseH;
+		}
+
+		for (int i = 0; i < backwardAStar.GetNumItems(); i++)
+		{
+			auto item = backwardAStar.GetItem(i);
+			if (item.where != kClosedList)
+				continue;
+			auto st = item.data;
+			double reverseH = me->HCost(st, goal);
+
+			errorB += item.g - reverseH;
+		}
+
+		int openSizeF = forwardAStar.GetNumOpenItems();
+		int openSizeB = backwardAStar.GetNumOpenItems();
+		std::cout << "errors:\t"
+			<< errorF << "\t"
+			<< errorB << "\n";
+
+		std::cout << "opensize:\t"
+			<< openSizeF << "\t"
+			<< openSizeB << "\n";
+
+
+		t.EndTimer();
+		t1 = t.GetElapsedTime();
+
+
+		t.StartTimer();
+		forwardAStar.GetPath(me, start, goal, forwardAStarPath);
+		t.EndTimer();
+		t2 = t.GetElapsedTime();
+
+		t.StartTimer();
+		backwardAStar.GetPath(me, goal, start, backwardAStarPath);
+		t.EndTimer();
+		t3 = t.GetElapsedTime();
+
+		t.StartTimer();
+		nbs.GetPath(me, start, goal, me, me, nbsPath);
+		t.EndTimer();
+		t4 = t.GetElapsedTime();
+
+
+		std::cout << "nodes:\t"
+			<< forwardAStar.GetNodesExpanded() << "\t"
+			<< backwardAStar.GetNodesExpanded() << "\t"
+			<< nbs.GetNodesExpanded() << "\n";
+
+		//std::cout << "time:\t"
+		//	<< t1 << "\t"
+		//	<< t2 << "\t"
+		//	<< t3 << "\t"
+		//	<< t4 << "\n";
+
+	}
+	printf("Exiting with no errors\n");
+	exit(0);
+}
+
 
 #include "RubiksCube.h"
 void tmp()

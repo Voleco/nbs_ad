@@ -69,7 +69,7 @@ struct AStarCompare {
 template <class state, class action, class environment, class openList = AStarOpenClosed<state, AStarCompare<state>> >
 class TemplateAStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
-	TemplateAStar() { ResetNodeCount(); env = 0; useBPMX = 0; radius = 4.0; stopAfterGoal = true; weight=1; useRadius=false; useOccupancyInfo=false; radEnv = 0; reopenNodes = false; theHeuristic = 0; directed = false; }
+	TemplateAStar() { ResetNodeCount(); env = 0; useBPMX = 0; radius = 4.0; stopAfterGoal = true; weight = 1; useRadius = false; useOccupancyInfo = false; radEnv = 0; reopenNodes = false; theHeuristic = 0; directed = false; stopGCost = DBL_MAX; stopFCost = DBL_MAX; }
 	virtual ~TemplateAStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath);
 	void GetPath(environment *, const state& , const state& , std::vector<action> & );
@@ -140,6 +140,8 @@ public:
 	std::string SVGDrawDetailed() const;
 	
 	void SetWeight(double w) {weight = w;}
+	void SetStopGCost(double g) { stopGCost = g; }
+	void SetStopFCost(double f) { stopFCost = f; }
 private:
 	uint64_t nodesTouched, nodesExpanded;
 //	bool GetNextNode(state &next);
@@ -155,6 +157,8 @@ private:
 	environment *env;
 	bool stopAfterGoal;
 	
+	double stopGCost;
+	double stopFCost;
 	double goalFCost;
 	double radius; // how far around do we consider other agents?
 	double weight; 
@@ -314,7 +318,20 @@ bool TemplateAStar<state,action,environment,openList>::DoSingleSearchStep(std::v
 		//closedList.clear();
 		return true;
 	}
-	uint64_t nodeid = openClosedList.Close();
+	uint64_t nodeid = openClosedList.Peek();
+	if (!fless(openClosedList.Lookup(nodeid).g, stopGCost))
+	{
+		openClosedList.Lookup(nodeid).h = 1000000;
+		openClosedList.KeyChanged(nodeid);
+		return false;
+	}
+	if (fgreater(openClosedList.Lookup(nodeid).g+ openClosedList.Lookup(nodeid).h, stopFCost))
+	{
+		printf("f: %f,stopf: %f\n", openClosedList.Lookup(nodeid).g + openClosedList.Lookup(nodeid).h,stopFCost);
+		return true;
+	}
+
+	nodeid = openClosedList.Close();
 //	if (openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h > lastF)
 //	{ lastF = openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h;
 //		//printf("Updated limit to %f\n", lastF);

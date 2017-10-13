@@ -19,5 +19,8 @@ void MyKeyboardHandler(unsigned long windowID, tKeyboardModifier, char key);
 void InstallHandlers();
 void AnalyzeMap(const char *, const char *, double weight);
 void AnalyzeNBS(const char *, const char *, double weight);
+void Predictor(const char *, const char *, double weight);
+void AnalyzeBD(const char *, int);
+
 
 #endif /* defined(__hog2_glut__GUICode__) */

@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string>
 #include <iostream>
+#include <vector>
 #include "Map.h"
 #include "MapAbstraction.h"
 #include "SearchEnvironment.h"
@@ -136,6 +137,8 @@ public:
 	virtual void GLLabelState(const xyLoc &, const char *) const;
 	virtual void GLLabelState(const xyLoc &s, const char *str, double scale) const;
 	virtual void GLDrawLine(const xyLoc &x, const xyLoc &y) const;
+	virtual void HighlightState(const xyLoc &l, int scale) const;
+	virtual void DrawPath(std::vector<xyLoc> &path) const;
 	
 	std::string SVGHeader();
 	std::string SVGDraw();

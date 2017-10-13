@@ -674,6 +674,33 @@ void MapEnvironment::GLDrawLine(const xyLoc &a, const xyLoc &b) const
 //	glEnd();
 }
 
+void MapEnvironment::HighlightState(const xyLoc &l, int scale) const
+{
+	GLdouble xx, yy, zz, rad;
+	map->GetOpenGLCoord(l.x, l.y, xx, yy, zz, rad);
+	GLfloat r, g, b, t;
+	//GetColor(r, g, b, t);
+	r = 0.8 ; g = 0.498039 ; b = 0.196078; t = 1;
+	glColor4f(r, g, b, t);
+	DrawSphere(xx, yy, zz, rad*scale);
+}
+
+void MapEnvironment::DrawPath(std::vector<xyLoc> &path) const
+{
+
+	GLfloat r, g, b, t;
+	//GetColor(r, g, b, t);
+	r = 0.0; g = 0.0; b = 1.0; t = 0;
+	glColor4f(r, g, b, t);
+	//glColor3f(0.5, 0.5, 0.5);
+	GLdouble xx, yy, zz, rad;
+	for (int i = 0; i < path.size(); i++)
+	{
+		map->GetOpenGLCoord(path[i].x, path[i].y, xx, yy, zz, rad);
+		DrawSphere(xx, yy, zz, rad);
+	}
+}
+
 void MapEnvironment::GLLabelState(const xyLoc &s, const char *str, double scale) const
 {
 	glPushMatrix();
