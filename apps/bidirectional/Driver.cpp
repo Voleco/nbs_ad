@@ -105,6 +105,9 @@ int main(int argc, char* argv[])
 	InstallCommandLineHandler(MyCLHandler, "-pida", "-pida", "Run MM");
 	InstallCommandLineHandler(MyCLHandler, "-grid", "-grid <map> <scenario> <hweight>", "MM/A* region analysis");
 	InstallCommandLineHandler(MyCLHandler, "-nbs", "-nbs <map> <scenario> <hweight>", "NBS test");
+	InstallCommandLineHandler(MyCLHandler, "-pre", "-pre <map> <scenario> <hweight>", "Predict algorithm");
+	InstallCommandLineHandler(MyCLHandler, "-trn", "-trn <scenario>", "learn from traning set");
+
 	InstallCommandLineHandler(MyCLHandler, "-stp", "-stp <alg>", "A*/BS*/MM/NBS/MM0 test on 15 puzzle 100 korf instances");
 	InstallCommandLineHandler(MyCLHandler, "-pancake", "-pancake", "NBS test on pancake");
 	InstallCommandLineHandler(MyCLHandler, "-toh", "-toh", "NBS test on TOH");
@@ -375,6 +378,22 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 		if (maxNumArgs > 3)
 			weight = atof(argument[3]);
 		AnalyzeNBS(argument[1], argument[2], weight);
+		return 3;
+	}
+	else if (maxNumArgs > 2 && strcmp(argument[0], "-pre") == 0)
+	{
+		double weight = 1.0;
+		if (maxNumArgs > 3)
+			weight = atof(argument[3]);
+		Predictor(argument[1], argument[2], weight);
+		return 3;
+	}
+	else if (maxNumArgs > 1 && strcmp(argument[0], "-trn") == 0)
+	{
+		int max_step = 50;
+		if (maxNumArgs > 2)
+			max_step = atoi(argument[2]);
+		AnalyzeBD(argument[1], max_step);
 		return 3;
 	}
 	else if (maxNumArgs > 2 && strcmp(argument[0], "-testPruning") == 0)
