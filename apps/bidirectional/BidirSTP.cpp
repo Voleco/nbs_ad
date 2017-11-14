@@ -131,6 +131,7 @@ MNPuzzleState<4, 4> GetKorfInstance(int which)
 void TestSTP(int algorithm)
 {
 	NBS<MNPuzzleState<4, 4>, slideDir, MNPuzzle<4,4>> nbs;
+	printf("weight %f \n",nbs.GetWeight());
 	MM<MNPuzzleState<4, 4>, slideDir, MNPuzzle<4,4>> mm;
 	BSStar<MNPuzzleState<4, 4>, slideDir, MNPuzzle<4,4>> bs;
 	TemplateAStar<MNPuzzleState<4, 4>, slideDir, MNPuzzle<4,4>> astar;

@@ -17,8 +17,8 @@
 #include "FPUtil.h"
 #include <unordered_map>
 #include "NBSQueue.h"
-#include "NBSQueueGF.h"
-
+//#include "NBSQueueGF.h"
+//#include "Graphics.h"
 //#define EPSILON 1
 
 // ADMISSIBLE is defined at "BDOpenClosed.h"
@@ -33,7 +33,12 @@ class NBS {
 public:
 	NBS()
 	{
-		forwardHeuristic = 0; backwardHeuristic = 0; env = 0; ResetNodeCount();
+		forwardHeuristic = 0; backwardHeuristic = 0; env = 0; ResetNodeCount(); 
+#ifdef WEIGHTED 
+		weight = WEIGHT;
+#else
+		weight = 1;
+#endif		
 	}
 	virtual ~NBS() {}
 	void GetPath(environment *env, const state& from, const state& to,
@@ -70,7 +75,6 @@ public:
 	}
 	double GetNodeForwardG(const state& s)
 	{
-		
 		uint64_t childID;
 		auto l = queue.forwardQueue.Lookup(env->GetStateHash(s), childID);
 		if (l != kUnseen)
@@ -79,7 +83,6 @@ public:
 	}
 	double GetNodeBackwardG(const state& s)
 	{
-		
 		uint64_t childID;
 		auto l = queue.backwardQueue.Lookup(env->GetStateHash(s), childID);
 		if (l != kUnseen)
@@ -89,7 +92,8 @@ public:
 	uint64_t GetNodesExpanded() const { return nodesExpanded; }
 	uint64_t GetNodesTouched() const { return nodesTouched; }
 	uint64_t GetDoubleExpansions() const;
-	uint64_t GetNecessaryExpansions() const {
+	uint64_t GetNecessaryExpansions() const
+	{
 		uint64_t necessary = 0;
 		for (const auto &i : counts)
 		{
@@ -98,11 +102,23 @@ public:
 		}
 		return necessary;
 	}
+	// returns 0...1 for the percentage of the optimal path length on each frontier
+	float GetMeetingPoint()
+	{
+		uint64_t fID, bID;
+		queue.backwardQueue.Lookup(env->GetStateHash(middleNode), bID);
+		queue.forwardQueue.Lookup(env->GetStateHash(middleNode), fID);
+		assert (fequal(queue.backwardQueue.Lookup(bID).g+queue.forwardQueue.Lookup(fID).g, currentCost));
+		return queue.backwardQueue.Lookup(bID).g/currentCost;
+	}
 	double GetSolutionCost() const { return currentCost; }
 	
 	void OpenGLDraw() const;
+	//void Draw(Graphics::Display &d) const;
+	//void DrawBipartiteGraph(Graphics::Display &d) const;
 	
-	//	void SetWeight(double w) {weight = w;}
+	void SetWeight(double w) {weight = w;}
+	double GetWeight() {return weight;	}
 private:
 	void ExtractFromMiddle(std::vector<state> &thePath);
 	void ExtractPathToGoal(state &node, std::vector<state> &thePath)
@@ -117,7 +133,11 @@ private:
 	}
 	
 	void ExtractPathToStart(state &node, std::vector<state> &thePath)
-	{ uint64_t theID; queue.forwardQueue.Lookup(env->GetStateHash(node), theID); ExtractPathToStartFromID(theID, thePath); }
+	{
+		uint64_t theID;
+		auto loc = queue.forwardQueue.Lookup(env->GetStateHash(node), theID);
+		ExtractPathToStartFromID(theID, thePath);
+	}
 	void ExtractPathToStartFromID(uint64_t node, std::vector<state> &thePath)
 	{
 		do {
@@ -128,6 +148,7 @@ private:
 	}
 	
 	void OpenGLDraw(const priorityQueue &queue) const;
+	//void Draw(Graphics::Display &d, const priorityQueue &queue) const;
 	
 	void Expand(uint64_t nextID,
 				priorityQueue &current,
@@ -157,7 +178,7 @@ private:
 	
 	double currentPr;
 	
-	
+	double weight;
 };
 
 template <class state, class action, class environment, class dataStructure, class priorityQueue>
@@ -213,11 +234,13 @@ bool NBS<state, action, environment, dataStructure, priorityQueue>::ExpandAPair(
 		ExtractFromMiddle(thePath);
 		return true;
 	}
-	else if (queue.forwardQueue.Lookup(nForward).data == queue.backwardQueue.Lookup(nBackward).data) // if success, see if nodes are the same (return path)
-	{
-		ExtractFromMiddle(thePath);
-		return true;
-	}
+	//else if (queue.forwardQueue.Lookup(nForward).data == queue.backwardQueue.Lookup(nBackward).data) // if success, see if nodes are the same (return path)
+	//{
+	//	if (queue.TerminateOnG())
+	//		printf("NBS: Lower Bound on C* from g+g (gsum)\n");
+	//	ExtractFromMiddle(thePath);
+	//	return true;
+	//}
 	else if (!fless(queue.GetLowerBound(), currentCost))
 	{
 		ExtractFromMiddle(thePath);
@@ -234,7 +257,9 @@ template <class state, class action, class environment, class dataStructure, cla
 void NBS<state, action, environment, dataStructure, priorityQueue>::ExtractFromMiddle(std::vector<state> &thePath)
 {
 	std::vector<state> pFor, pBack;
+//	std::cout << "Extracting from " << middleNode << "\n";
 	ExtractPathToGoal(middleNode, pBack);
+//	std::cout << "And from: Extracting from " << middleNode << "\n";
 	ExtractPathToStart(middleNode, pFor);
 	reverse(pFor.begin(), pFor.end());
 	thePath = pFor;
@@ -260,6 +285,8 @@ void NBS<state, action, environment, dataStructure, priorityQueue>::Expand(uint6
 	//
 	uint64_t tmp = current.Close();
 	assert(tmp == nextID);
+//	if (currentCost != DBL_MAX)
+//		std::cout << "Expanding " << current.Lookup(nextID).data << "\n";
 	
 	//this can happen when we expand a single node instead of a pair
 	if (fgreatereq(current.Lookup(nextID).g + current.Lookup(nextID).h, currentCost))
@@ -281,9 +308,11 @@ void NBS<state, action, environment, dataStructure, priorityQueue>::Expand(uint6
 		switch (loc)
 		{
 			case kClosed: // ignore
+				break;
 #ifdef ADMISSIBLE
 				if (fless(current.Lookup(nextID).g + edgeCost, current.Lookup(childID).g))
 				{
+//					std::cout << "Re-opening node from closed " << current.Lookup(nextID).data << "\n";
 					double oldGCost = current.Lookup(childID).g;
 					current.Lookup(childID).parentID = nextID;
 					current.Lookup(childID).g = current.Lookup(nextID).g + edgeCost;
@@ -296,12 +325,17 @@ void NBS<state, action, environment, dataStructure, priorityQueue>::Expand(uint6
 					{
 						if (fless(current.Lookup(nextID).g + edgeCost + opposite.Lookup(reverseLoc).g, currentCost))
 						{
+							if (currentCost == DBL_MAX)
+							{
+								printf("NBS: first solution %llu\n", nodesExpanded);
+//								std::cout << "Through " << succ << " (not here)\n";
+							}
 							// TODO: store current solution
-							//							printf("NBS Potential updated solution found, cost: %1.2f + %1.2f = %1.2f (%llu nodes)\n",
-							//								   current.Lookup(nextID).g+edgeCost,
-							//								   opposite.Lookup(reverseLoc).g,
-							//								   current.Lookup(nextID).g+edgeCost+opposite.Lookup(reverseLoc).g,
-							//								nodesExpanded);
+//							printf("NBS Potential updated solution found, cost: %1.2f + %1.2f = %1.2f (%llu nodes)\n",
+//								   current.Lookup(nextID).g+edgeCost,
+//								   opposite.Lookup(reverseLoc).g,
+//								   current.Lookup(nextID).g+edgeCost+opposite.Lookup(reverseLoc).g,
+//								   nodesExpanded);
 							currentCost = current.Lookup(nextID).g + edgeCost + opposite.Lookup(reverseLoc).g;
 
 							middleNode = succ;
@@ -327,6 +361,11 @@ void NBS<state, action, environment, dataStructure, priorityQueue>::Expand(uint6
 					{
 						if (fless(current.Lookup(nextID).g+edgeCost + opposite.Lookup(reverseLoc).g, currentCost))
 						{
+							if (currentCost == DBL_MAX)
+							{
+								printf("NBS: first solution %llu\n", nodesExpanded);
+								std::cout << "Through " << succ << " (better)\n";
+							}
 							// TODO: store current solution
 //							printf("NBS Potential updated solution found, cost: %1.2f + %1.2f = %1.2f (%llu nodes)\n",
 //								   current.Lookup(nextID).g+edgeCost,
@@ -372,8 +411,10 @@ void NBS<state, action, environment, dataStructure, priorityQueue>::Expand(uint6
 					//		nextID,0);
 					//else
 					double newNodeF = current.Lookup(nextID).g + edgeCost + heuristic->HCost(succ, target);
-					if (fless(newNodeF , currentCost))
+					if (fless(newNodeF, currentCost))
 					{
+/*
+//commented out for suboptimal test
 						if (fless(newNodeF, queue.GetLowerBound()))
 							current.AddOpenNode(succ,
 												env->GetStateHash(succ),
@@ -381,28 +422,67 @@ void NBS<state, action, environment, dataStructure, priorityQueue>::Expand(uint6
 												heuristic->HCost(succ, target),
 												nextID, kOpenReady);
 						else
+*/
 							current.AddOpenNode(succ,
 												env->GetStateHash(succ),
 												current.Lookup(nextID).g + edgeCost,
 												heuristic->HCost(succ, target),
 												nextID, kOpenWaiting);
-					}
-					if (loc == kOpenReady || loc == kOpenWaiting)
-					{
-						//double edgeCost = env->GCost(current.Lookup(nextID).data, succ);
-						if (fless(current.Lookup(nextID).g + edgeCost + opposite.Lookup(reverseLoc).g, currentCost))
+
+						if (loc == kOpenReady || loc == kOpenWaiting)
 						{
-							// TODO: store current solution
-//							printf("NBS Potential solution found, cost: %1.2f + %1.2f = %1.2f (%llu nodes)\n",
-//								current.Lookup(nextID).g + edgeCost,
-//								opposite.Lookup(reverseLoc).g,
-//								current.Lookup(nextID).g + edgeCost + opposite.Lookup(reverseLoc).g,
-//								nodesExpanded);
-							currentCost = current.Lookup(nextID).g + edgeCost + opposite.Lookup(reverseLoc).g;
+							//double edgeCost = env->GCost(current.Lookup(nextID).data, succ);
+							if (fless(current.Lookup(nextID).g + edgeCost + opposite.Lookup(reverseLoc).g, currentCost))
+							{
+								if (currentCost == DBL_MAX)
+								{
+//									if (&current == &queue.forwardQueue)
+//										std::cout << "Searching forward\n";
+//									else
+//										std::cout << "Searching backward\n";
+									printf("NBS: first solution %llu ", nodesExpanded);
+//									
+//									std::cout << "Through " << succ << " (first) \n";
+//									
+//									uint64_t theID;
+//									auto loc = queue.forwardQueue.Lookup(env->GetStateHash(succ), theID);
+//									std::cout << "Forward:\n";
+//									switch (loc)
+//									{
+//										case kOpenReady: std::cout << "Initially in open ready\n"; break;
+//										case kOpenWaiting: std::cout << "Initially in open waiting\n"; break;
+//										case kClosed: std::cout << "Initially in closed\n"; break;
+//										case kUnseen: std::cout << "Initially in UNSEEN\n"; break;
+//									}
+//									loc = queue.backwardQueue.Lookup(env->GetStateHash(succ), theID);
+//									std::cout << "Backward:\n";
+//									switch (loc)
+//									{
+//										case kOpenReady: std::cout << "Initially in open ready\n"; break;
+//										case kOpenWaiting: std::cout << "Initially in open waiting\n"; break;
+//										case kClosed: std::cout << "Initially in closed\n"; break;
+//										case kUnseen: std::cout << "Initially in UNSEEN\n"; break;
+//									}
+									
+								}
+								// TODO: store current solution
+//								printf("NBS Potential solution found, cost: %1.2f + %1.2f = %1.2f (%llu nodes)\n",
+//									   current.Lookup(nextID).g + edgeCost,
+//									   opposite.Lookup(reverseLoc).g,
+//									   current.Lookup(nextID).g + edgeCost + opposite.Lookup(reverseLoc).g,
+//									   nodesExpanded);
+								currentCost = current.Lookup(nextID).g + edgeCost + opposite.Lookup(reverseLoc).g;
+								
+								middleNode = succ;
+//								std::cout << "One more time, solution passes through " << middleNode << " (first) \n";
+								
+							}
 							
-							middleNode = succ;
 						}
 						
+					}
+					else {
+						//std::cout << "***Not adding " << succ << " to open because cost is worse than current of " << currentCost << "\n";
 					}
 				}
 				
@@ -476,5 +556,65 @@ void NBS<state, action, environment, dataStructure, priorityQueue>::OpenGLDraw(c
 		}
 	}
 }
+
+/*
+template <class state, class action, class environment, class dataStructure, class priorityQueue>
+void NBS<state, action, environment, dataStructure, priorityQueue>::Draw(Graphics::Display &d) const
+{
+	Draw(d, queue.forwardQueue);
+	Draw(d, queue.backwardQueue);
+}
+
+
+template <class state, class action, class environment, class dataStructure, class priorityQueue>
+void NBS<state, action, environment, dataStructure, priorityQueue>::Draw(Graphics::Display &d, const priorityQueue &queue) const
+{
+	double transparency = 0.9;
+	if (queue.size() == 0)
+		return;
+	uint64_t top = -1;
+	//	double minf = 1e9, maxf = 0;
+	if (queue.OpenReadySize() > 0)
+	{
+		top = queue.Peek(kOpenReady);
+	}
+	for (unsigned int x = 0; x < queue.size(); x++)
+	{
+		const auto &data = queue.Lookat(x);
+		if (x == top)
+		{
+			env->SetColor(1.0, 1.0, 0.0, transparency);
+			env->Draw(d, data.data);
+		}
+		if (data.where == kOpenWaiting)
+		{
+			env->SetColor(0.0, 0.5, 0.5, transparency);
+			env->Draw(d, data.data);
+		}
+		else if (data.where == kOpenReady)
+		{
+			env->SetColor(0.0, 1.0, 0.0, transparency);
+			env->Draw(d, data.data);
+		}
+		else if (data.where == kClosed)
+		{
+			env->SetColor(1.0, 0.0, 0.0, transparency);
+			env->Draw(d, data.data);
+		}
+	}
+}
+
+template <class state, class action, class environment, class dataStructure, class priorityQueue>
+void NBS<state, action, environment, dataStructure, priorityQueue>::DrawBipartiteGraph(Graphics::Display &d) const
+{
+	double val = queue.GetLowerBound();
+	//currentCost
+	assert(!"Implementaion incomplete");
+	//	Draw(d, queue.forwardQueue);
+//	Draw(d, queue.backwardQueue);
+}
+//void DrawBipartiteGraph(Graphics::Display &d);
+
+*/
 
 #endif /* NBS_h */

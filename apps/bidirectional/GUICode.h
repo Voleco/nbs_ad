@@ -21,6 +21,6 @@ void AnalyzeMap(const char *, const char *, double weight);
 void AnalyzeNBS(const char *, const char *, double weight);
 void Predictor(const char *, const char *, double weight);
 void AnalyzeBD(const char *, int);
-
+void AnalyzeWeighted(const char *);
 
 #endif /* defined(__hog2_glut__GUICode__) */

@@ -1493,14 +1493,65 @@ void AnalyzeBD(const char *scenario, int max_step)
 		t.StartTimer();
 
 		bool solved = false;
-		for (int i = 0; i < max_step; i++)
+
+		if (max_step < 50) 
 		{
-			if (forwardAStar.DoSingleSearchStep(forwardAStarPath) || backwardAStar.DoSingleSearchStep(backwardAStarPath))
+			double forwardCurrentF, backwardCurrentF;
+			uint64_t id1 = forwardAStar.openClosedList.Peek();
+			forwardCurrentF = forwardAStar.openClosedList.Lookup(id1).g + forwardAStar.openClosedList.Lookup(id1).h;
+			uint64_t id2 = backwardAStar.openClosedList.Peek();
+			backwardCurrentF = backwardAStar.openClosedList.Lookup(id2).g + backwardAStar.openClosedList.Lookup(id2).h;
+
+			int layer = 0;
+			while (layer < max_step)
 			{
-				solved = true;
-				break;
+				if (forwardAStar.DoSingleSearchStep(forwardAStarPath))
+				{
+					solved = true;
+					break;
+				}
+				if (forwardAStar.openClosedList.OpenSize()>0)
+				{
+					uint64_t nodeid = forwardAStar.openClosedList.Peek();
+					if (!fequal(forwardAStar.openClosedList.Lookup(nodeid).g + forwardAStar.openClosedList.Lookup(nodeid).h, forwardCurrentF))
+					{
+						layer++;
+						forwardCurrentF = forwardAStar.openClosedList.Lookup(nodeid).g + forwardAStar.openClosedList.Lookup(nodeid).h;
+					}
+				}
+			}
+			layer = 0;
+			while (layer < max_step)
+			{
+				if (backwardAStar.DoSingleSearchStep(backwardAStarPath))
+				{
+					solved = true;
+					break;
+				}
+				if (backwardAStar.openClosedList.OpenSize()>0)
+				{
+					uint64_t nodeid = backwardAStar.openClosedList.Peek();
+					if (!fequal(backwardAStar.openClosedList.Lookup(nodeid).g + backwardAStar.openClosedList.Lookup(nodeid).h, backwardCurrentF))
+					{
+						layer++;
+						backwardCurrentF = backwardAStar.openClosedList.Lookup(nodeid).g + backwardAStar.openClosedList.Lookup(nodeid).h;
+					}
+				}
 			}
 		}
+		else
+		{
+			for (int i = 0; i < max_step; i++)
+			{
+				if (forwardAStar.DoSingleSearchStep(forwardAStarPath) || backwardAStar.DoSingleSearchStep(backwardAStarPath))
+				{
+					solved = true;
+					break;
+				}
+			}
+		}
+		
+
 		if (solved)
 			continue;
 
@@ -1538,6 +1589,98 @@ void AnalyzeBD(const char *scenario, int max_step)
 		std::cout << "opensize:\t"
 			<< openSizeF << "\t"
 			<< openSizeB << "\n";
+
+
+		t.EndTimer();
+		t1 = t.GetElapsedTime();
+
+
+		t.StartTimer();
+		forwardAStar.GetPath(me, start, goal, forwardAStarPath);
+		t.EndTimer();
+		t2 = t.GetElapsedTime();
+
+		t.StartTimer();
+		backwardAStar.GetPath(me, goal, start, backwardAStarPath);
+		t.EndTimer();
+		t3 = t.GetElapsedTime();
+
+		t.StartTimer();
+		nbs.GetPath(me, start, goal, me, me, nbsPath);
+		t.EndTimer();
+		t4 = t.GetElapsedTime();
+
+
+		std::cout << "nodes:\t"
+			<< forwardAStar.GetNodesExpanded() << "\t"
+			<< backwardAStar.GetNodesExpanded() << "\t"
+			<< nbs.GetNodesExpanded() << "\n";
+
+		//std::cout << "time:\t"
+		//	<< t1 << "\t"
+		//	<< t2 << "\t"
+		//	<< t3 << "\t"
+		//	<< t4 << "\n";
+
+	}
+	printf("Exiting with no errors\n");
+	exit(0);
+}
+
+
+void AnalyzeWeighted(const char *scenario)
+{
+	NBS<xyLoc, tDirection, MapEnvironment> nbs;
+	TemplateAStar<xyLoc, tDirection, MapEnvironment> forwardAStar;
+	forwardAStar.SetWeight(3);
+	TemplateAStar<xyLoc, tDirection, MapEnvironment> backwardAStar;
+	backwardAStar.SetWeight(3);
+
+	printf("Loading scenario %s\n", scenario);
+	ScenarioLoader s(scenario);
+
+	std::string base = "/home/jingwei/Desktop/Shared/nbs_ad/hog2/";
+	Timer t;
+	ZeroHeuristic<xyLoc> z;
+
+	std::string mapName = "";
+	for (int x = s.GetNumExperiments() - 1; x >= 0; x--)
+	{
+		if (fequal(s.GetNthExperiment(x).GetDistance(), 0))
+			continue;
+		std::string currentMapName(s.GetNthExperiment(x).GetMapName());
+		if (mapName.compare(currentMapName) != 0)
+		{
+			mapName = currentMapName;
+			std::string fullPath = base + mapName;
+			Map *m = new Map(fullPath.c_str());
+			me = new MapEnvironment(m);
+			me->SetDiagonalCost(1.5);
+		}
+		xyLoc start, goal;
+		start.x = s.GetNthExperiment(x).GetStartX();
+		start.y = s.GetNthExperiment(x).GetStartY();
+		goal.x = s.GetNthExperiment(x).GetGoalX();
+		goal.y = s.GetNthExperiment(x).GetGoalY();
+		printf("Problem %d of %d from ", x, s.GetNumExperiments());
+		std::cout << start << " to " << goal << " " << mapName << "\n";
+		std::vector<xyLoc> forwardAStarPath;
+		std::vector<xyLoc> backwardAStarPath;
+
+		std::vector<xyLoc> nbsPath;
+
+		forwardAStar.SetHeuristic(me);
+		backwardAStar.SetHeuristic(me);
+
+		double t1, t2, t3, t4, t5, t6;
+
+
+		forwardAStar.InitializeSearch(me, start, goal, forwardAStarPath);
+		backwardAStar.InitializeSearch(me, goal, start, backwardAStarPath);
+
+
+		t.StartTimer();
+
 
 
 		t.EndTimer();

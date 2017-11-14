@@ -107,6 +107,7 @@ int main(int argc, char* argv[])
 	InstallCommandLineHandler(MyCLHandler, "-nbs", "-nbs <map> <scenario> <hweight>", "NBS test");
 	InstallCommandLineHandler(MyCLHandler, "-pre", "-pre <map> <scenario> <hweight>", "Predict algorithm");
 	InstallCommandLineHandler(MyCLHandler, "-trn", "-trn <scenario>", "learn from traning set");
+	InstallCommandLineHandler(MyCLHandler, "-w", "-w <scenario>", "weighted nbs");
 
 	InstallCommandLineHandler(MyCLHandler, "-stp", "-stp <alg>", "A*/BS*/MM/NBS/MM0 test on 15 puzzle 100 korf instances");
 	InstallCommandLineHandler(MyCLHandler, "-pancake", "-pancake", "NBS test on pancake");
@@ -394,6 +395,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 		if (maxNumArgs > 2)
 			max_step = atoi(argument[2]);
 		AnalyzeBD(argument[1], max_step);
+		return 3;
+	}
+	else if (maxNumArgs > 1 && strcmp(argument[0], "-w") == 0)
+	{
+		AnalyzeWeighted(argument[1]);
 		return 3;
 	}
 	else if (maxNumArgs > 2 && strcmp(argument[0], "-testPruning") == 0)
